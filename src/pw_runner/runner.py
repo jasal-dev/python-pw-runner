@@ -130,6 +130,9 @@ class RunManager:
             run_id: The run ID.
             cmd: The pytest command to execute.
         """
+        events_path = get_events_path(run_id)
+        events_file = None
+        
         try:
             # Add our custom plugin and run_id to the command
             plugin_args = [
@@ -139,9 +142,9 @@ class RunManager:
             full_cmd = cmd + plugin_args
             
             # Open events file for writing
-            events_path = get_events_path(run_id)
+            events_file = open(events_path, "a")
             
-            # Run pytest
+            # Run pytest with timeout
             process = await asyncio.create_subprocess_exec(
                 *full_cmd,
                 stdout=asyncio.subprocess.PIPE,
@@ -149,32 +152,48 @@ class RunManager:
             )
             self._current_process = process
             
-            # Collect events and output
-            events = []
+            # Read stderr for events and stdout in parallel to avoid blocking
+            async def consume_stdout() -> None:
+                """Consume stdout to prevent buffer blocking."""
+                if process.stdout:
+                    async for line in process.stdout:
+                        pass  # Discard stdout output
             
-            # Read stderr for events
-            if process.stderr:
-                async for line in process.stderr:
-                    line_str = line.decode().strip()
-                    
-                    # Check for event lines
-                    if line_str.startswith("PW_RUNNER_EVENT:"):
-                        event_json = line_str[len("PW_RUNNER_EVENT:"):]
-                        try:
-                            event = json.loads(event_json)
-                            events.append(event)
-                            
-                            # Write event to file
-                            with open(events_path, "a") as f:
-                                f.write(json.dumps(event) + "\n")
-                            
-                            # Update summary based on event
-                            self._process_event(run_id, event)
-                        except json.JSONDecodeError:
-                            pass
+            async def process_events() -> None:
+                """Process events from stderr."""
+                if process.stderr:
+                    async for line in process.stderr:
+                        line_str = line.decode().strip()
+                        
+                        # Check for event lines
+                        if line_str.startswith("PW_RUNNER_EVENT:"):
+                            event_json = line_str[len("PW_RUNNER_EVENT:"):]
+                            try:
+                                event = json.loads(event_json)
+                                
+                                # Write event to file
+                                if events_file:
+                                    events_file.write(json.dumps(event) + "\n")
+                                    events_file.flush()
+                                
+                                # Update summary based on event
+                                self._process_event(run_id, event)
+                            except json.JSONDecodeError:
+                                pass
             
-            # Wait for completion
-            await process.wait()
+            # Run both tasks in parallel
+            await asyncio.gather(
+                consume_stdout(),
+                process_events(),
+            )
+            
+            # Wait for completion with timeout (default 1 hour)
+            try:
+                await asyncio.wait_for(process.wait(), timeout=3600)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                raise RuntimeError("Test run timed out after 1 hour")
             
             # Update run status
             summary = self._runs[run_id]
@@ -193,13 +212,21 @@ class RunManager:
             self._save_run_summary(run_id)
             
         except Exception as e:
-            # Handle errors
+            # Log and handle errors
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error running pytest for run {run_id}: {e}")
+            
             summary = self._runs.get(run_id)
             if summary:
                 summary.status = RunStatus.FAILED
                 summary.end_time = datetime.now().isoformat()
                 self._save_run_summary(run_id)
         finally:
+            # Close events file
+            if events_file:
+                events_file.close()
+            
             # Clear current run
             self._current_run = None
             self._current_process = None

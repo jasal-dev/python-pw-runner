@@ -37,7 +37,12 @@ app = FastAPI(
 # Configure CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For MVP, allow all origins (restrict in production)
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,10 +58,11 @@ try:
         StaticFiles(directory=str(artifact_root)),
         name="artifacts"
     )
-except Exception:
-    # If artifacts directory doesn't exist yet, that's okay
-    # It will be created on first run
-    pass
+except Exception as e:
+    # Log error during artifact directory setup
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Failed to mount artifacts directory: {e}")
 
 
 @app.get("/")

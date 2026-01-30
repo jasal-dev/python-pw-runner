@@ -67,8 +67,11 @@ def context(
     try:
         context.tracing.stop(path=str(trace_path))
     except Exception as e:
-        # Log error but don't fail the test
-        print(f"Warning: Failed to save trace: {e}")
+        # Log error and mark test with warning
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to save trace for {nodeid}: {e}")
+        pytest.fail(f"Trace capture failed: {e}", pytrace=False)
     finally:
         context.close()
 

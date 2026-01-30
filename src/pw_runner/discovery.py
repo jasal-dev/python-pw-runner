@@ -19,7 +19,8 @@ class DiscoveredTest:
 def discover_tests(
     path: Optional[str] = None,
     keyword: Optional[str] = None,
-    marker: Optional[str] = None
+    marker: Optional[str] = None,
+    timeout: int = 60
 ) -> list[DiscoveredTest]:
     """Discover tests using pytest's collection mechanism.
     
@@ -27,9 +28,13 @@ def discover_tests(
         path: Optional path to limit test discovery.
         keyword: Optional keyword filter.
         marker: Optional marker filter.
+        timeout: Timeout in seconds for test collection (default: 60).
         
     Returns:
         List of discovered tests.
+        
+    Raises:
+        RuntimeError: If test discovery times out or fails.
     """
     # Build pytest command for collection
     cmd = ["pytest", "--collect-only", "-q", "--no-header"]
@@ -51,7 +56,7 @@ def discover_tests(
             cmd,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=timeout,
         )
         
         # Parse the output
@@ -74,8 +79,11 @@ def discover_tests(
         return tests
     
     except subprocess.TimeoutExpired:
-        raise RuntimeError("Test discovery timed out")
-    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"Test discovery timed out after {timeout} seconds. "
+            "Consider reducing the number of tests or increasing the timeout."
+        )
+    except Exception as e:
         raise RuntimeError(f"Test discovery failed: {e}")
 
 
