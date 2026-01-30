@@ -3,11 +3,12 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from pw_runner.discovery import DiscoveredTest, discover_tests, group_tests_by_file
 from pw_runner.models import get_artifact_root
 from pw_runner.runner import RunSummary, get_run_manager
 
@@ -169,3 +170,80 @@ async def cancel_run(run_id: str) -> dict[str, str]:
         )
     
     return {"status": "cancelled", "run_id": run_id}
+
+
+# Test discovery endpoints
+class TestInfoResponse(BaseModel):
+    """Response model for test information."""
+    nodeid: str
+    file_path: str
+    class_name: Optional[str]
+    function_name: str
+    markers: list[str]
+
+
+class TestDiscoveryResponse(BaseModel):
+    """Response model for test discovery."""
+    tests: list[TestInfoResponse]
+    total: int
+    grouped_by_file: dict[str, list[TestInfoResponse]]
+
+
+@app.get("/api/tests", response_model=TestDiscoveryResponse)
+async def discover_tests_endpoint(
+    path: Optional[str] = Query(None, description="Path to limit test discovery"),
+    keyword: Optional[str] = Query(None, description="Keyword filter (-k)"),
+    marker: Optional[str] = Query(None, description="Marker filter (-m)"),
+) -> TestDiscoveryResponse:
+    """Discover available tests using pytest's collection mechanism.
+    
+    Args:
+        path: Optional path to limit test discovery.
+        keyword: Optional keyword filter.
+        marker: Optional marker filter.
+        
+    Returns:
+        Discovered tests and metadata.
+        
+    Raises:
+        HTTPException: If test discovery fails.
+    """
+    try:
+        tests = discover_tests(path=path, keyword=keyword, marker=marker)
+        
+        # Convert to response models
+        test_responses = [
+            TestInfoResponse(
+                nodeid=t.nodeid,
+                file_path=t.file_path,
+                class_name=t.class_name,
+                function_name=t.function_name,
+                markers=t.markers,
+            )
+            for t in tests
+        ]
+        
+        # Group by file
+        grouped = group_tests_by_file(tests)
+        grouped_responses = {
+            file_path: [
+                TestInfoResponse(
+                    nodeid=t.nodeid,
+                    file_path=t.file_path,
+                    class_name=t.class_name,
+                    function_name=t.function_name,
+                    markers=t.markers,
+                )
+                for t in file_tests
+            ]
+            for file_path, file_tests in grouped.items()
+        }
+        
+        return TestDiscoveryResponse(
+            tests=test_responses,
+            total=len(test_responses),
+            grouped_by_file=grouped_responses,
+        )
+    
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
