@@ -50,4 +50,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "example: marks tests as example tests (deselect with '-m \"not example\"')",
+]
 asyncio_mode = "auto"

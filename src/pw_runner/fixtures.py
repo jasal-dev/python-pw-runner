@@ -44,7 +44,8 @@ def context(
     - Handles cleanup even if the test fails
     """
     # Get run_id from pytest option or use a default
-    run_id = request.config.getoption("--pw-runner-run-id", "local-run")
+    # Note: getoption returns None if option is not provided, even with a default
+    run_id = request.config.getoption("--pw-runner-run-id", default=None) or "local-run"
     nodeid = request.node.nodeid
     
     # Create artifact directory for this test
