@@ -81,6 +81,28 @@ curl http://localhost:8000/api/runs/<run-id>
 curl http://localhost:8000/api/runs
 ```
 
+### Viewing Test Traces
+
+After running tests, Playwright traces are automatically captured and can be viewed using the Playwright trace viewer:
+
+```bash
+# View a specific trace
+playwright show-trace .pw-runner/runs/<run-id>/tests/<test-name>/trace.zip
+
+# Example for a local test run
+playwright show-trace .pw-runner/runs/local-run/tests/user_tests_saucedemo_test_saucedemo_py__test_valid_login/trace.zip
+
+# Or download from the UI and view
+playwright show-trace ~/Downloads/trace.zip
+```
+
+The trace viewer provides:
+- Step-by-step execution timeline with screenshots
+- Network activity and API calls
+- Console logs and errors
+- DOM snapshots at each step
+- Source code with highlighted actions
+
 ### Running Example Tests
 
 The repository includes example tests for the [Sauce Labs demo site](https://www.saucedemo.com/):
