@@ -68,7 +68,7 @@ curl http://localhost:8000/api/tests
 ```bash
 curl -X POST http://localhost:8000/api/runs \
   -H "Content-Type: application/json" \
-  -d '{"test_nodeids": ["examples/saucedemo/test_saucedemo.py::test_valid_login"]}'
+  -d '{"test_nodeids": ["user_tests/saucedemo/test_saucedemo.py::test_valid_login"]}'
 ```
 
 **Get run status:**
@@ -87,16 +87,16 @@ The repository includes example tests for the [Sauce Labs demo site](https://www
 
 ```bash
 # Run all example tests
-pytest examples/saucedemo/ -v
+pytest user_tests/saucedemo/ -v
 
 # Run with the test runner (captures traces)
-pytest examples/saucedemo/ -v --pw-runner-run-id=example-run
+pytest user_tests/saucedemo/ -v --pw-runner-run-id=example-run
 
 # View traces
 playwright show-trace .pw-runner/runs/example-run/tests/<test-name>/trace.zip
 ```
 
-See [examples/saucedemo/README.md](examples/saucedemo/README.md) for more details.
+See [user_tests/saucedemo/README.md](user_tests/saucedemo/README.md) for more details.
 
 ## Project Purpose and Goals
 
@@ -284,11 +284,15 @@ python-pw-runner/
 │   ├── discovery.py       # Test discovery
 │   ├── pytest_plugin.py   # Event streaming plugin
 │   └── fixtures.py        # Playwright fixtures
-├── tests/                 # Unit tests
-├── examples/saucedemo/    # Example test suite
+├── tests/                 # Backend unit tests (not shown in UI)
+├── user_tests/            # User Playwright tests (shown in UI by default)
+│   └── saucedemo/        # Example test suite
+├── frontend/              # React frontend application
 ├── docs/                  # Documentation
 └── README.md
 ```
+
+**Note**: Tests in `user_tests/` are displayed in the UI by default. This keeps your user-facing tests separate from the backend's unit tests.
 
 ## MVP Scope
 

@@ -141,8 +141,9 @@ class TestExample:
     def test_discover_tests_endpoint(
         self, client: TestClient, sample_test_file: Path
     ) -> None:
-        """Test the test discovery endpoint."""
-        response = client.get("/api/tests")
+        """Test the test discovery endpoint with explicit path."""
+        # Pass the explicit path since the default is now user_tests/
+        response = client.get(f"/api/tests?path={sample_test_file}")
         assert response.status_code == 200
         
         data = response.json()
@@ -155,8 +156,11 @@ class TestExample:
         assert len(data["tests"]) == 3
         
         # Check that tests are grouped by file
-        assert "test_sample.py" in data["grouped_by_file"]
-        assert len(data["grouped_by_file"]["test_sample.py"]) == 3
+        file_name = sample_test_file.name
+        grouped_files = list(data["grouped_by_file"].keys())
+        assert len(grouped_files) == 1
+        assert grouped_files[0].endswith(file_name)
+        assert len(data["grouped_by_file"][grouped_files[0]]) == 3
 
     def test_discover_tests_with_path_filter(
         self, client: TestClient, sample_test_file: Path

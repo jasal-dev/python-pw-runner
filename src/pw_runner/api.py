@@ -1,5 +1,6 @@
 """FastAPI application for the Python Playwright Test Runner backend."""
 
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
 
@@ -11,6 +12,11 @@ from pydantic import BaseModel
 from pw_runner.discovery import DiscoveredTest, discover_tests, group_tests_by_file
 from pw_runner.models import get_artifact_root
 from pw_runner.runner import RunSummary, get_run_manager
+
+
+def get_default_test_path() -> str:
+    """Get the default test path from environment or use fallback."""
+    return os.environ.get("PW_RUNNER_TEST_PATH", "user_tests")
 
 
 @asynccontextmanager
@@ -204,7 +210,7 @@ async def discover_tests_endpoint(
     """Discover available tests using pytest's collection mechanism.
     
     Args:
-        path: Optional path to limit test discovery.
+        path: Optional path to limit test discovery. If not provided, uses the configured default test path.
         keyword: Optional keyword filter.
         marker: Optional marker filter.
         
@@ -215,7 +221,10 @@ async def discover_tests_endpoint(
         HTTPException: If test discovery fails.
     """
     try:
-        tests = discover_tests(path=path, keyword=keyword, marker=marker)
+        # Use configured default test path if no path is provided
+        test_path = path if path is not None else get_default_test_path()
+        
+        tests = discover_tests(path=test_path, keyword=keyword, marker=marker)
         
         # Convert to response models
         test_responses = [

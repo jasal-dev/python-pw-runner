@@ -1,6 +1,7 @@
 """Command-line interface for the Python Playwright Test Runner."""
 
 import argparse
+import os
 import sys
 
 import uvicorn
@@ -27,10 +28,19 @@ def main() -> None:
         action="store_true",
         help="Enable auto-reload for development",
     )
+    parser.add_argument(
+        "--test-path",
+        default="user_tests",
+        help="Default path for discovering user tests (default: user_tests)",
+    )
     
     args = parser.parse_args()
     
+    # Set the default test path as an environment variable for the API to use
+    os.environ["PW_RUNNER_TEST_PATH"] = args.test_path
+    
     print(f"Starting Python Playwright Test Runner on http://{args.host}:{args.port}")
+    print(f"Default test path: {args.test_path}")
     print("Press Ctrl+C to stop the server")
     
     uvicorn.run(
