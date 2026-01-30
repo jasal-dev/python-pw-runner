@@ -2,6 +2,124 @@
 
 A local graphical test runner for Python + pytest + Playwright, inspired by the Playwright JavaScript test runner experience.
 
+## Quick Start
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/jasal-dev/python-pw-runner.git
+cd python-pw-runner
+
+# Install the backend package
+pip install -e .
+
+# Install Playwright browsers
+playwright install chromium
+
+# Install frontend dependencies
+cd frontend
+npm install
+cd ..
+```
+
+### Running the Test Runner
+
+**Option 1: With Frontend UI (Recommended)**
+
+Start the backend server:
+```bash
+pw-runner
+```
+
+In a separate terminal, start the frontend:
+```bash
+cd frontend
+npm run dev
+```
+
+Open your browser to `http://localhost:3000` to use the graphical interface.
+
+**Option 2: API Only**
+
+Start just the backend server:
+```bash
+pw-runner
+```
+
+The API will be available at `http://localhost:8000`. Visit `http://localhost:8000/docs` to see the interactive API documentation.
+
+### Using the Graphical UI
+
+1. Open `http://localhost:3000` in your browser
+2. Browse and select tests from the left panel
+3. Click "Run Tests" to execute selected tests
+4. Monitor progress in real-time on the right panel
+5. Expand completed runs to download traces and view results
+
+### Using the API
+
+**Discover tests:**
+```bash
+curl http://localhost:8000/api/tests
+```
+
+**Start a test run:**
+```bash
+curl -X POST http://localhost:8000/api/runs \
+  -H "Content-Type: application/json" \
+  -d '{"test_nodeids": ["user_tests/saucedemo/test_saucedemo.py::test_valid_login"]}'
+```
+
+**Get run status:**
+```bash
+curl http://localhost:8000/api/runs/<run-id>
+```
+
+**List all runs:**
+```bash
+curl http://localhost:8000/api/runs
+```
+
+### Viewing Test Traces
+
+After running tests, Playwright traces are automatically captured and can be viewed using the Playwright trace viewer:
+
+```bash
+# View a specific trace
+playwright show-trace .pw-runner/runs/<run-id>/tests/<test-name>/trace.zip
+
+# Example for a local test run
+playwright show-trace .pw-runner/runs/local-run/tests/user_tests_saucedemo_test_saucedemo_py__test_valid_login/trace.zip
+
+# Or download from the UI and view
+playwright show-trace ~/Downloads/trace.zip
+```
+
+The trace viewer provides:
+- Step-by-step execution timeline with screenshots
+- Network activity and API calls
+- Console logs and errors
+- DOM snapshots at each step
+- Source code with highlighted actions
+
+### Running Example Tests
+
+The repository includes example tests for the [Sauce Labs demo site](https://www.saucedemo.com/):
+
+```bash
+# Run all example tests
+pytest user_tests/saucedemo/ -v
+
+# Run with the test runner (captures traces)
+pytest user_tests/saucedemo/ -v --pw-runner-run-id=example-run
+
+# View traces
+playwright show-trace .pw-runner/runs/example-run/tests/<test-name>/trace.zip
+```
+
+See [user_tests/saucedemo/README.md](user_tests/saucedemo/README.md) for more details.
+
 ## Project Purpose and Goals
 
 This project aims to provide a modern, user-friendly graphical interface for running Python-based Playwright tests. The goal is to bring the excellent developer experience of the Playwright JavaScript test runner to the Python ecosystem.
@@ -82,14 +200,121 @@ The web UI provides convenient links to trace files, making it easy to download 
 
 This project is being developed incrementally. Key features and components are tracked in the following GitHub issues:
 
-- [#1](https://github.com/jasal-dev/python-pw-runner/issues/1) - Initial project setup and planning
-- [#2](https://github.com/jasal-dev/python-pw-runner/issues/2) - Backend API design
-- [#3](https://github.com/jasal-dev/python-pw-runner/issues/3) - Test discovery implementation
-- [#4](https://github.com/jasal-dev/python-pw-runner/issues/4) - Test execution engine
-- [#5](https://github.com/jasal-dev/python-pw-runner/issues/5) - Event streaming infrastructure
-- [#7](https://github.com/jasal-dev/python-pw-runner/issues/7) - Frontend UI development
-- [#8](https://github.com/jasal-dev/python-pw-runner/issues/8) - Artifact management
-- [#9](https://github.com/jasal-dev/python-pw-runner/issues/9) - Trace capture integration
+- [#1](https://github.com/jasal-dev/python-pw-runner/issues/1) - ✅ Initial project setup and planning
+- [#2](https://github.com/jasal-dev/python-pw-runner/issues/2) - ✅ Backend API design
+- [#3](https://github.com/jasal-dev/python-pw-runner/issues/3) - ✅ Test discovery implementation
+- [#4](https://github.com/jasal-dev/python-pw-runner/issues/4) - 🚧 Test execution engine
+- [#5](https://github.com/jasal-dev/python-pw-runner/issues/5) - ✅ Event streaming infrastructure
+- [#7](https://github.com/jasal-dev/python-pw-runner/issues/7) - 🚧 Frontend UI development
+- [#8](https://github.com/jasal-dev/python-pw-runner/issues/8) - ⏳ Artifact management
+- [#9](https://github.com/jasal-dev/python-pw-runner/issues/9) - ✅ Trace capture integration
+
+## Implementation Status
+
+### ✅ Completed Features
+
+- **Data Model** - Run IDs, artifact directory structure, path sanitization
+- **Backend API** - FastAPI server with REST endpoints
+- **Test Discovery** - pytest collection with filtering (path, keyword, marker)
+- **Run Management** - Start, monitor, and cancel test runs
+- **Event Streaming** - Custom pytest plugin for structured event emission
+- **Trace Capture** - Automatic Playwright trace recording per test
+- **Example Tests** - saucedemo.com demo test suite
+- **CLI** - `pw-runner` command to start the server
+
+### 🚧 In Progress
+
+- **Frontend UI** - Web interface for test selection and monitoring (Issue #8)
+
+### ⏳ Future Enhancements
+
+- **WebSocket streaming** - Real-time event push to frontend
+- **Test filtering UI** - Advanced search and filter capabilities
+- **Trace viewer integration** - In-browser trace viewing
+- **CI/CD integration** - GitHub Actions, GitLab CI support
+- **Test parallelization** - Built-in parallel execution
+
+## API Documentation
+
+The backend provides a RESTful API with the following endpoints:
+
+### Test Discovery
+
+- `GET /api/tests` - Discover available tests
+  - Query params: `path`, `keyword`, `marker`
+  - Returns: List of tests with metadata, grouped by file
+
+### Run Management
+
+- `POST /api/runs` - Start a new test run
+  - Body: `{"test_nodeids": ["test1", "test2"], "pytest_args": ["-v"]}`
+  - Returns: `{"run_id": "run-...", "status": "running"}`
+
+- `GET /api/runs` - List all test runs
+  - Returns: Array of run summaries
+
+- `GET /api/runs/{run_id}` - Get run details
+  - Returns: Run summary with test results
+
+- `DELETE /api/runs/{run_id}` - Cancel a running test
+  - Returns: Status message
+
+### Artifacts
+
+- `GET /artifacts/{run_id}/tests/{test_name}/trace.zip` - Download trace file
+- `GET /artifacts/{run_id}/run-summary.json` - Download run summary
+- `GET /artifacts/{run_id}/events.ndjson` - Download event stream
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_api.py -v
+
+# Run with coverage
+pytest tests/ --cov=pw_runner --cov-report=html
+```
+
+### Code Quality
+
+```bash
+# Format code
+black src/ tests/
+
+# Lint code
+ruff check src/ tests/
+
+# Type checking
+mypy src/
+```
+
+### Project Structure
+
+```
+python-pw-runner/
+├── src/pw_runner/          # Main package
+│   ├── __init__.py
+│   ├── api.py             # FastAPI application
+│   ├── cli.py             # Command-line interface
+│   ├── models.py          # Data models and utilities
+│   ├── runner.py          # Test run manager
+│   ├── discovery.py       # Test discovery
+│   ├── pytest_plugin.py   # Event streaming plugin
+│   └── fixtures.py        # Playwright fixtures
+├── tests/                 # Backend unit tests (not shown in UI)
+├── user_tests/            # User Playwright tests (shown in UI by default)
+│   └── saucedemo/        # Example test suite
+├── frontend/              # React frontend application
+├── docs/                  # Documentation
+└── README.md
+```
+
+**Note**: Tests in `user_tests/` are displayed in the UI by default. This keeps your user-facing tests separate from the backend's unit tests.
 
 ## MVP Scope
 
