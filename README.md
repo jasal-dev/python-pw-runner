@@ -11,22 +11,51 @@ A local graphical test runner for Python + pytest + Playwright, inspired by the 
 git clone https://github.com/jasal-dev/python-pw-runner.git
 cd python-pw-runner
 
-# Install the package
+# Install the backend package
 pip install -e .
 
 # Install Playwright browsers
 playwright install chromium
+
+# Install frontend dependencies
+cd frontend
+npm install
+cd ..
 ```
 
 ### Running the Test Runner
 
-Start the backend server:
+**Option 1: With Frontend UI (Recommended)**
 
+Start the backend server:
+```bash
+pw-runner
+```
+
+In a separate terminal, start the frontend:
+```bash
+cd frontend
+npm run dev
+```
+
+Open your browser to `http://localhost:3000` to use the graphical interface.
+
+**Option 2: API Only**
+
+Start just the backend server:
 ```bash
 pw-runner
 ```
 
 The API will be available at `http://localhost:8000`. Visit `http://localhost:8000/docs` to see the interactive API documentation.
+
+### Using the Graphical UI
+
+1. Open `http://localhost:3000` in your browser
+2. Browse and select tests from the left panel
+3. Click "Run Tests" to execute selected tests
+4. Monitor progress in real-time on the right panel
+5. Expand completed runs to download traces and view results
 
 ### Using the API
 
