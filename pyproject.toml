@@ -25,6 +25,9 @@ dev = [
     "ruff>=0.1.0",
 ]
 
+[project.scripts]
+pw-runner = "pw_runner.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
