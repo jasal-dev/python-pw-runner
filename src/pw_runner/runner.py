@@ -131,16 +131,50 @@ class RunManager:
             cmd: The pytest command to execute.
         """
         try:
+            # Add our custom plugin and run_id to the command
+            plugin_args = [
+                "-p", "pw_runner.pytest_plugin",
+                "--pw-runner-run-id", run_id,
+            ]
+            full_cmd = cmd + plugin_args
+            
+            # Open events file for writing
+            events_path = get_events_path(run_id)
+            
             # Run pytest
             process = await asyncio.create_subprocess_exec(
-                *cmd,
+                *full_cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             self._current_process = process
             
+            # Collect events and output
+            events = []
+            
+            # Read stderr for events
+            if process.stderr:
+                async for line in process.stderr:
+                    line_str = line.decode().strip()
+                    
+                    # Check for event lines
+                    if line_str.startswith("PW_RUNNER_EVENT:"):
+                        event_json = line_str[len("PW_RUNNER_EVENT:"):]
+                        try:
+                            event = json.loads(event_json)
+                            events.append(event)
+                            
+                            # Write event to file
+                            with open(events_path, "a") as f:
+                                f.write(json.dumps(event) + "\n")
+                            
+                            # Update summary based on event
+                            self._process_event(run_id, event)
+                        except json.JSONDecodeError:
+                            pass
+            
             # Wait for completion
-            stdout, stderr = await process.communicate()
+            await process.wait()
             
             # Update run status
             summary = self._runs[run_id]
@@ -169,6 +203,47 @@ class RunManager:
             # Clear current run
             self._current_run = None
             self._current_process = None
+    
+    def _process_event(self, run_id: str, event: dict[str, Any]) -> None:
+        """Process an event and update run summary.
+        
+        Args:
+            run_id: The run ID.
+            event: The event data.
+        """
+        summary = self._runs.get(run_id)
+        if not summary:
+            return
+        
+        event_type = event.get("type")
+        
+        if event_type == "test_result":
+            # Update test counts
+            outcome = event.get("outcome")
+            if outcome == "passed":
+                summary.passed += 1
+            elif outcome == "failed":
+                summary.failed += 1
+            elif outcome == "skipped":
+                summary.skipped += 1
+            
+            summary.total_tests = summary.passed + summary.failed + summary.skipped
+            
+            # Add test result
+            test_result = TestResult(
+                nodeid=event.get("nodeid", ""),
+                outcome=outcome or "unknown",
+                duration_seconds=event.get("duration", 0.0),
+                artifacts={}
+            )
+            summary.tests.append(test_result)
+        
+        elif event_type == "session_finish":
+            # Update final counts from session finish event
+            summary.passed = event.get("passed", summary.passed)
+            summary.failed = event.get("failed", summary.failed)
+            summary.skipped = event.get("skipped", summary.skipped)
+            summary.total_tests = event.get("total", summary.total_tests)
     
     def get_run_summary(self, run_id: str) -> Optional[RunSummary]:
         """Get the summary for a specific run.
